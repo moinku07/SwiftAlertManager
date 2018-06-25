@@ -8,71 +8,78 @@
 
 import UIKit
 
-var alertManagerCompletion : ((index: Int) -> Void)?
-
 class AlertManager: NSObject, UIAlertViewDelegate {
     
-    convenience init(viewController: UIViewController?,title: String? = nil, message: String? = nil, buttonNames: Array<String>? = nil, completion: ((index: Int) -> Void)? = nil) {
+    convenience init(viewController: UIViewController? = nil, title: String? = nil, message: String? = nil, buttonNames: Array<String>? = nil, textFields: Array<UITextField>? = nil, tintColor: UIColor? = nil, completion: ((_ index: Int, _ textFields: [UITextField]?) -> Void)? = nil) {
         self.init()
         let alertTitle1 = (title == nil || title!.isEmpty) ? "Alert" : title!;
         let alertMsg = (message == nil || message!.isEmpty) ? alertTitle1 : message!;
         
-        if(AlertManager.isIOS8() == true && viewController != nil){
-            let alertController: UIAlertController = UIAlertController(title: alertTitle1, message: alertMsg, preferredStyle: UIAlertControllerStyle.Alert);
-            if buttonNames == nil{
-                alertController.addAction(UIAlertAction(title: "Okay", style: UIAlertActionStyle.Default, handler: { (action: UIAlertAction) -> Void in
-                    if completion != nil{
-                        completion!(index: 0)
-                    }
-                }));
-            }else{
-                for (index,name) in (buttonNames!).enumerate(){
-                    alertController.addAction(UIAlertAction(title: name, style: UIAlertActionStyle.Default, handler: { (action: UIAlertAction) -> Void in
-                        if completion != nil{
-                            completion!(index: index)
-                        }
-                    }))
+        let alertController: UIAlertController = UIAlertController(title: alertTitle1, message: alertMsg, preferredStyle: UIAlertControllerStyle.alert)
+        
+        if buttonNames == nil{
+            alertController.addAction(UIAlertAction(title: "Okay", style: UIAlertActionStyle.default, handler: { (action: UIAlertAction!) -> Void in
+                if completion != nil{
+                    completion!(0, alertController.textFields)
                 }
-            }
-            
-            viewController!.presentViewController(alertController, animated: true, completion: nil)
+            }));
         }else{
-            let alertView: UIAlertView = UIAlertView(title: alertTitle1, message: alertMsg, delegate: AlertManager.self, cancelButtonTitle: nil)
-            
-            alertManagerCompletion = completion
-            
-            if buttonNames == nil{
-                alertView.addButtonWithTitle("Okay")
+            var actionStyle: UIAlertActionStyle = UIAlertActionStyle.default
+            for (index,name) in buttonNames!.enumerated(){
+                if buttonNames!.count - 1 == index{
+                    actionStyle = UIAlertActionStyle.cancel
+                }
+                //DVPrint(actionStyle.rawValue)
+                alertController.addAction(UIAlertAction(title: name, style: actionStyle, handler: { (action: UIAlertAction!) -> Void in
+                    if completion != nil{
+                        completion!(index, alertController.textFields)
+                    }
+                }))
+            }
+        }
+        
+        if textFields != nil{
+            for textfield in textFields!{
+                alertController.addTextField(configurationHandler: { (textField: UITextField) -> Void in
+                    textField.font = textfield.font
+                    textField.textColor = textfield.textColor
+                    textField.placeholder = textfield.placeholder
+                    textField.text = textfield.text
+                    
+                    if let sublayers = textfield.layer.sublayers{
+                        for sublayer in sublayers{
+                            textField.layer.addSublayer(sublayer)
+                        }
+                    }
+                })
+            }
+        }
+        
+        if tintColor != nil{
+            alertController.view.tintColor = tintColor!
+        }
+        if viewController != nil{
+            viewController?.present(alertController, animated: true, completion: nil)
+        }else{
+            if let vc: UIViewController = UIApplication.shared.keyWindow?.rootViewController{
+                vc.present(alertController, animated: true, completion: nil)
             }else{
-                for (_,name) in (buttonNames!).enumerate(){
-                    alertView.addButtonWithTitle(name)
+                let vc: UIViewController = UIViewController()
+                UIApplication.shared.keyWindow?.rootViewController = vc
+                DispatchQueue.main.async {
+                    vc.present(alertController, animated: true, completion: nil)
                 }
             }
-            alertView.show();
         }
     }
     
-    //custom alert function
-    class func showAlert(viewController: UIViewController?,title: String? = nil, message: String? = nil, buttonNames: Array<String>? = nil, completion: ((index: Int) -> Void)? = nil){
-        AlertManager(viewController: viewController, title: title, message: message, buttonNames: buttonNames, completion: completion)
+    // MARK: - custom alert function
+    class func showAlert(_ viewController: UIViewController,title: String? = nil, message: String? = nil, buttonNames: Array<String>? = nil, textFields: Array<UITextField>? = nil, completion: ((_ index: Int, _ textFields: [UITextField]?) -> Void)? = nil) -> AlertManager{
+        return AlertManager(viewController: viewController, title: title, message: message, buttonNames: buttonNames, textFields: textFields, tintColor: nil, completion: completion)
     }
     
-    class func alertView(alertView: UIAlertView, clickedButtonAtIndex buttonIndex: Int) {
-        if alertManagerCompletion != nil{
-            alertManagerCompletion!(index: buttonIndex)
-        }
+    // MARK: - custom alert function
+    class func showAlertWithTint(_ viewController: UIViewController,title: String? = nil, message: String? = nil, buttonNames: Array<String>? = nil, textFields: [UITextField]? = nil, tintColor: UIColor? = nil, completion: ((_ index: Int, _ textFields: Array<UITextField>?) -> Void)? = nil) -> AlertManager{
+        return AlertManager(viewController: viewController, title: title, message: message, buttonNames: buttonNames, textFields: textFields, tintColor: tintColor, completion: completion)
     }
-    
-    //check if iOS version >= 8
-    class func isIOS8()->Bool{
-        var result: Bool = false;
-        switch UIDevice.currentDevice().systemVersion.compare("8.0.0", options: NSStringCompareOptions.NumericSearch) {
-        case .OrderedSame, .OrderedDescending:
-            result = true;
-        default:
-            result = false;
-        }
-        return result
-    }
-    
 }
